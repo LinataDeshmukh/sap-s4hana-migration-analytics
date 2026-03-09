@@ -1,0 +1,181 @@
+# =============================================================================
+# models/sources.yml
+#
+# PURPOSE:
+#   Registers all 28 bronze tables as dbt sources.
+#   This tells dbt where the raw data lives so models can reference
+#   bronze tables using {{ source('bronze', 'table_name') }} instead
+#   of hardcoding database.table_name in every SQL file.
+#
+#   Benefits:
+#     - Single place to change if bronze database name ever changes
+#     - dbt can run freshness checks on source tables
+#     - dbt docs auto-generates lineage showing bronze → silver → gold
+#     - Source tests can validate bronze data before transformation
+# =============================================================================
+
+version: 2
+
+sources:
+  - name: bronze
+    database: precision_mfg_bronze
+    schema: precision_mfg_bronze
+    description: >
+      Raw bronze layer — all 28 source files loaded as-is from
+      SAP legacy system, Excel extracts, JSON APIs, XML feeds,
+      and Parquet exports. No transformations applied.
+      Data contains intentional quality issues to be resolved
+      in the silver layer.
+
+    tables:
+
+      # ── Domain 1: Materials ─────────────────────────────────────────────────
+      - name: bronze_material_master
+        description: >
+          Core material master records from SAP legacy system.
+          Contains ~16,200 rows with messy data including duplicate
+          material IDs, inconsistent UOM formats, mixed date formats,
+          and invalid weight values.
+
+      - name: bronze_material_plant_data
+        description: >
+          Plant-specific material settings (MRP parameters, valuation,
+          storage). ~31,498 rows covering 3 plants.
+
+      - name: bronze_material_uom
+        description: >
+          Alternative unit of measure conversions per material.
+          ~46,800 rows.
+
+      - name: bronze_material_plant_data_UDS
+        description: >
+          Upload Data Sheet template for material plant data.
+          ~5,000 rows prepared for SAP upload.
+
+      - name: bronze_material_master_delta
+        description: >
+          Delta extract of new/changed materials during cutover period.
+          ~3,000 rows for reconciliation tracking.
+
+      # ── Domain 2: Procurement ───────────────────────────────────────────────
+      - name: bronze_vendor_master
+        description: >
+          Vendor master records from legacy procurement system.
+          ~8,640 rows with duplicate vendors, inconsistent country codes,
+          and missing bank details.
+
+      - name: bronze_purchasing_info_record_UDS
+        description: >
+          Purchasing info records — negotiated prices per vendor/material.
+          ~26,250 rows.
+
+      - name: bronze_source_list
+        description: >
+          Approved source of supply per material/plant/vendor.
+          ~12,000 rows.
+
+      - name: bronze_vendor_delta
+        description: >
+          Delta extract of new/changed vendors during cutover.
+          ~2,500 rows.
+
+      # ── Domain 3: Planning/MRP ──────────────────────────────────────────────
+      - name: bronze_mrp_parameters
+        description: >
+          MRP planning parameters per material/plant combination.
+          ~37,100 rows. Critical for automatic purchase order generation.
+
+      - name: bronze_mrp_controllers
+        description: >
+          MRP controller master data — planners responsible for materials.
+          ~24 rows.
+
+      - name: bronze_planning_calendar
+        description: >
+          Factory planning calendar with working days and shifts.
+          ~5,481 rows.
+
+      # ── Domain 4: Plant Maintenance ─────────────────────────────────────────
+      - name: bronze_equipment_master
+        description: >
+          Equipment master records across all 3 plants.
+          ~10,600 rows with construction year issues and warranty mismatches.
+
+      - name: bronze_functional_locations
+        description: >
+          Functional location hierarchy for plant maintenance.
+          ~319 rows. Loaded from Windows-1252 encoded XML.
+
+      - name: bronze_maintenance_plans
+        description: >
+          Preventive maintenance plans linked to equipment.
+          ~8,400 rows with decommissioned equipment references.
+
+      # ── Domain 5: Warehouse/Logistics ───────────────────────────────────────
+      - name: bronze_warehouse_master
+        description: >
+          Warehouse master — top level warehouse definitions.
+          ~15 rows.
+
+      - name: bronze_storage_locations
+        description: >
+          Storage location master per plant/warehouse.
+          ~80 rows.
+
+      - name: bronze_storage_bins
+        description: >
+          Individual storage bin records across all warehouses.
+          ~52,000 rows with inconsistent bin naming across plants.
+
+      - name: bronze_material_storage_assignment
+        description: >
+          Material to storage bin assignments with min/max stock levels.
+          ~42,000 rows.
+
+      # ── Domain 6: Quality Management ────────────────────────────────────────
+      - name: bronze_quality_info_records
+        description: >
+          Quality inspection requirements per vendor/material.
+          ~21,000 rows with invalid quality scores and certificate mismatches.
+
+      - name: bronze_inspection_plans
+        description: >
+          Inspection plan definitions with sampling procedures.
+          ~12,600 rows. Loaded from multi-encoding XML.
+
+      - name: bronze_sampling_procedures
+        description: >
+          Statistical sampling procedure master data.
+          ~205 rows.
+
+      # ── Domain 7: Finance/Costing ────────────────────────────────────────────
+      - name: bronze_cost_centers
+        description: >
+          Cost center master data per plant/department.
+          ~157 rows with invalid company codes and expired records.
+
+      - name: bronze_profit_centers
+        description: >
+          Profit center master data for financial reporting.
+          ~51 rows. Several expired but still flagged active.
+
+      - name: bronze_gl_accounts
+        description: >
+          General ledger account master.
+          ~525 rows with wrong account type assignments.
+
+      - name: bronze_material_costing
+        description: >
+          Standard cost estimates per material/plant.
+          ~37,100 rows with null standard costs and component mismatches.
+
+      # ── Audit Tables ─────────────────────────────────────────────────────────
+      - name: bronze_load_audit
+        description: >
+          Pipeline audit log — one row per file load attempt.
+          Tracks status, row counts, timing, and errors.
+
+      - name: bronze_failed_rows
+        description: >
+          Row-level failure log — captures rows that failed to insert
+          during bronze ingestion with full raw data as JSON.

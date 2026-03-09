@@ -1,0 +1,65 @@
+# =============================================================================
+# dbt_project.yml
+#
+# PURPOSE:
+#   Main dbt project configuration for SAP S/4HANA Migration Analytics.
+#   Defines:
+#     - Project name and version
+#     - Model folder structure (silver vs gold)
+#     - Materialization strategy per layer:
+#         silver → view  (lightweight, always fresh, no storage cost)
+#         gold   → table (materialized for Power BI performance)
+# =============================================================================
+
+name: sap_migration
+version: "1.0.0"
+config-version: 2
+
+# dbt looks for models in this folder
+model-paths: ["models"]
+
+# dbt looks for tests in this folder
+test-paths: ["tests"]
+
+# dbt looks for seeds (reference CSVs) here
+seed-paths: ["seeds"]
+
+# dbt looks for macros (reusable SQL functions) here
+macro-paths: ["macros"]
+
+# Compiled SQL output goes here (auto-generated, not committed to git)
+target-path: "target"
+
+# dbt artifacts go here
+packages-install-path: "dbt_packages"
+
+# Files and folders dbt should ignore
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+# Which profile to use (matches profiles.yml)
+profile: sap_migration
+
+# =============================================================================
+# MODEL CONFIGURATION
+# Controls how each layer is materialized in MySQL
+# =============================================================================
+
+models:
+  sap_migration:
+
+    silver:
+      # Silver models → views
+      # Views always reflect latest bronze data without storing duplicate data.
+      # When we query silver, MySQL runs the SQL fresh against bronze each time.
+      # Switch to 'table' later if query performance becomes an issue.
+      +materialized: view
+      +schema: silver
+
+    gold:
+      # Gold models → tables
+      # Gold is queried by Power BI — materialized as tables for performance.
+      # dbt rebuilds these tables on every `dbt run`.
+      +materialized: table
+      +schema: gold
