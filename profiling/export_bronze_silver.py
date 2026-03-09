@@ -70,6 +70,20 @@ EXPORT_PAIRS = [
         "silver_material_plant_data",
         "material_plant_data"
     ),
+    (
+        "precision_mfg_bronze",
+        "bronze_equipment_master",
+        "precision_mfg_bronze_silver",
+        "silver_equipment_master",
+        "equipment_master"
+    ),
+    (
+        "precision_mfg_bronze",
+        "bronze_cost_centers",
+        "precision_mfg_bronze_silver",
+        "silver_cost_centers",
+        "cost_centers"
+    ),
 ]
 
 # =============================================================================
@@ -118,6 +132,26 @@ HIGHLIGHT_COLS = [
     "goods_receipt_days_num",
     "valid_from_clean",
     "created_date_clean",
+    # Equipment master
+    "active_flag_clean",
+    "currency_clean",
+    "manufacturer_clean",
+    "acquisition_date_clean",
+    "start_up_date_clean",
+    "warranty_end_date_clean",
+    "created_date_clean",
+    "changed_date_clean",
+    "acquisition_value_num",
+    "year_constructed_num",
+    # Cost centers
+    "active_flag_clean",
+    "currency_clean",
+    "cost_center_type_clean",
+    "department_clean",
+    "valid_from_clean",
+    "valid_to_clean",
+    "created_date_clean",
+    "changed_date_clean",
 ]
 
 # =============================================================================
@@ -178,6 +212,33 @@ FLAG_COLS = [
     "flag_invalid_lead_time",
     "flag_bad_valid_from",
     "flag_bad_created_date",
+    # Equipment master flags
+    "flag_invalid_plant",
+    "flag_invalid_company_code",
+    "flag_invalid_active_flag",
+    "flag_invalid_cost_center",
+    "flag_null_cost_center",
+    "flag_null_description",
+    "flag_future_construction",
+    "flag_old_construction_year",
+    "flag_warranty_before_startup",
+    "flag_changed_before_created",
+    "flag_generic_user",
+    "flag_nonstandard_currency",
+    "flag_duplicate_serial",
+    # Cost center flags
+    "flag_invalid_company_code",
+    "flag_invalid_controlling_area",
+    "flag_invalid_plant",
+    "flag_invalid_active_flag",
+    "flag_invalid_cc_type",
+    "flag_null_responsible_person",
+    "flag_null_profit_center",
+    "flag_invalid_validity_dates",
+    "flag_expired_but_active",
+    "flag_bad_created_date",
+    "flag_changed_before_created",
+    "flag_generic_user",
 ]
 
 # =============================================================================
