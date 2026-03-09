@@ -84,6 +84,13 @@ EXPORT_PAIRS = [
         "silver_cost_centers",
         "cost_centers"
     ),
+    (
+        "precision_mfg_bronze",
+        "bronze_gl_accounts",
+        "precision_mfg_bronze_silver",
+        "silver_gl_accounts",
+        "gl_accounts"
+    ),
 ]
 
 # =============================================================================
@@ -150,6 +157,15 @@ HIGHLIGHT_COLS = [
     "department_clean",
     "valid_from_clean",
     "valid_to_clean",
+    "created_date_clean",
+    "changed_date_clean",
+    # GL accounts
+    "company_code_clean",
+    "account_type_clean",
+    "currency_clean",
+    "reconciliation_acct_clean",
+    "line_item_display_clean",
+    "posting_block_clean",
     "created_date_clean",
     "changed_date_clean",
 ]
@@ -236,6 +252,20 @@ FLAG_COLS = [
     "flag_null_profit_center",
     "flag_invalid_validity_dates",
     "flag_expired_but_active",
+    "flag_bad_created_date",
+    "flag_changed_before_created",
+    "flag_generic_user",
+    # GL account flags
+    "flag_invalid_company_code",
+    "flag_null_description",
+    "flag_invalid_account_type",
+    "flag_null_account_group",
+    "flag_missing_currency",
+    "flag_nonstandard_currency",
+    "flag_invalid_recon_acct",
+    "flag_invalid_line_item",
+    "flag_invalid_posting_block",
+    "flag_marked_for_deletion",
     "flag_bad_created_date",
     "flag_changed_before_created",
     "flag_generic_user",
