@@ -101,7 +101,8 @@ standardize_uom AS (
             WHEN UPPER(TRIM(base_uom)) IN (
                 'KG','KGS','KGM','KILOGRAM','KILOGRAMS','KG.')
                 THEN 'KG'
-            WHEN UPPER(TRIM(base_uom)) IN (
+            WHEN UPPER(TRIM(base_uom
+            )) IN (
                 'EA','EACH','PC','PCS','PIECE','PIECES','ST',
                 'STCK','NR','UNIT','UNITS')
                 THEN 'EA'
