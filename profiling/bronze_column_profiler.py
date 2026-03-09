@@ -131,12 +131,13 @@ TABLE_DOMAIN_MAP = {
     "bronze_material_master":              "Materials",
     "bronze_material_plant_data":          "Materials",
     "bronze_material_uom":                 "Materials",
-    "bronze_material_plant_data_UDS":      "Materials",
+    "bronze_material_plant_data_uds":      "Materials",
     "bronze_material_master_delta":        "Materials",
+    "bronze_material_exceptions":          "Materials",
 
     # Domain 2: Procurement
     "bronze_vendor_master":                "Procurement",
-    "bronze_purchasing_info_record_UDS":   "Procurement",
+    "bronze_purchasing_info_record_uds":   "Procurement",
     "bronze_source_list":                  "Procurement",
     "bronze_vendor_delta":                 "Procurement",
 
