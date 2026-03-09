@@ -8,14 +8,15 @@
 --   1. Standardize material_id    → uppercase, remove dashes/spaces
 --   2. Standardize base_uom       → map all variants to SAP standard codes
 --   3. Standardize material_type  → uppercase, trim, validate against SAP list
---   4. Standardize dates          → parse 6 date formats → YYYY-MM-DD
---   5. Validate weights           → flag net_weight > gross_weight
---   6. Flag duplicates            → same material_id appearing more than once
---   7. Flag null mandatory fields → description, base_uom, material_type,
+--   4. Standardize procurement_type → E/F/X standard codes
+--   5. Standardize dates          → parse 6 date formats → YYYY-MM-DD
+--   6. Validate weights           → flag net_weight > gross_weight
+--   7. Flag duplicates            → same material_id appearing more than once
+--   8. Flag null mandatory fields → description, base_uom, material_type,
 --                                   material_group
---   8. Flag invalid material_type → not in SAP standard list
---   9. Flag generic created_by    → ADMIN, SYSTEM, MIGRATE users
---  10. Derive overall DQ score    → % of fields passing validation
+--   9. Flag invalid material_type → not in SAP standard list
+--  10. Flag generic created_by    → ADMIN, SYSTEM, MIGRATE users
+--  11. Derive overall DQ score    → % of fields passing validation
 --
 -- MATERIALIZATION: view
 -- SOURCE: bronze_material_master
@@ -53,7 +54,7 @@ standardize_material_id AS (
 
 
 -- =============================================================================
--- STEP 3: STANDARDIZE MATERIAL TYPE
+-- STEP 3: STANDARDIZE MATERIAL TYPE AND PROCUREMENT TYPE
 -- Valid SAP material types:
 --   FERT = Finished Product
 --   ROH  = Raw Material
@@ -63,13 +64,27 @@ standardize_material_id AS (
 --   NLAG = Non-Stock
 --   ERSA = Spare Parts
 --   HIBE = Operating Supplies
--- Anything else is invalid — flagged in Step 6.
+-- Valid SAP procurement types:
+--   E = External procurement
+--   F = In-house production
+--   X = Both
 -- =============================================================================
 
 standardize_material_type AS (
     SELECT
         *,
-        UPPER(TRIM(material_type)) AS material_type_clean
+        UPPER(TRIM(material_type)) AS material_type_clean,
+
+        CASE
+            WHEN UPPER(TRIM(procurement_type)) IN ('E','EXTERNAL','EXT','BUY')
+                THEN 'E'
+            WHEN UPPER(TRIM(procurement_type)) IN ('F','IN-HOUSE','INHOUSE','MAKE')
+                THEN 'F'
+            WHEN UPPER(TRIM(procurement_type)) IN ('X','BOTH','E+F','E/F')
+                THEN 'X'
+            ELSE UPPER(TRIM(procurement_type))
+        END AS procurement_type_clean
+
     FROM standardize_material_id
 ),
 
@@ -77,55 +92,40 @@ standardize_material_type AS (
 -- =============================================================================
 -- STEP 4: STANDARDIZE BASE UOM
 -- Maps all known variants to SAP 3-character standard codes.
--- Extended to cover all variants found in actual data:
---   GRAM, Gram, grams → G
---   Piece, PIECE, piece → EA
---   Ea, ea, Each, EACH → EA
---   KGS, kgs, Kilogram → KG
 -- =============================================================================
 
 standardize_uom AS (
     SELECT
         *,
         CASE
-            -- Kilogram variants
             WHEN UPPER(TRIM(base_uom)) IN (
                 'KG','KGS','KGM','KILOGRAM','KILOGRAMS','KG.')
                 THEN 'KG'
-            -- Each / Piece variants
             WHEN UPPER(TRIM(base_uom)) IN (
                 'EA','EACH','PC','PCS','PIECE','PIECES','ST',
                 'STCK','NR','UNIT','UNITS')
                 THEN 'EA'
-            -- Liter variants
             WHEN UPPER(TRIM(base_uom)) IN (
                 'LT','LTR','L','LITER','LITERS','LITRE','LITRES','LIT')
                 THEN 'LT'
-            -- Meter variants
             WHEN UPPER(TRIM(base_uom)) IN (
                 'M','MTR','METER','METERS','METRE','METRES','MT.')
                 THEN 'M'
-            -- Gram variants
             WHEN UPPER(TRIM(base_uom)) IN (
                 'G','GRM','GRAM','GRAMS','GR','GM')
                 THEN 'G'
-            -- Ton variants
             WHEN UPPER(TRIM(base_uom)) IN (
                 'TO','TON','TONS','TONNE','TONNES','MT','T')
                 THEN 'TO'
-            -- Millimeter variants
             WHEN UPPER(TRIM(base_uom)) IN (
                 'MM','MILLIMETER','MILLIMETERS','MILLIMETRE')
                 THEN 'MM'
-            -- Centimeter variants
             WHEN UPPER(TRIM(base_uom)) IN (
                 'CM','CENTIMETER','CENTIMETERS','CENTIMETRE')
                 THEN 'CM'
-            -- Box variants
             WHEN UPPER(TRIM(base_uom)) IN (
                 'BX','BOX','BOXES','CS','CASE','CASES')
                 THEN 'BX'
-            -- Already clean or unknown — keep as-is (will be flagged)
             ELSE UPPER(TRIM(base_uom))
         END AS base_uom_clean
     FROM standardize_material_type
@@ -135,7 +135,7 @@ standardize_uom AS (
 -- =============================================================================
 -- STEP 5: STANDARDIZE DATES
 -- Tries 6 date format patterns using COALESCE + STR_TO_DATE.
--- First match wins. NULL if no pattern matches → flagged in Step 7.
+-- First match wins. NULL if no pattern matches.
 -- =============================================================================
 
 standardize_dates AS (
@@ -165,7 +165,6 @@ standardize_dates AS (
 -- =============================================================================
 -- STEP 6: CAST NUMERIC FIELDS
 -- Validates string is numeric before casting to DECIMAL.
--- Invalid strings (N/A, TBD, letters) become NULL safely.
 -- =============================================================================
 
 cast_numerics AS (
@@ -188,8 +187,7 @@ cast_numerics AS (
 
 -- =============================================================================
 -- STEP 7: APPLY DATA QUALITY FLAGS
--- 12 flags total covering all discovered data quality issues.
--- 0 = clean, 1 = issue found.
+-- 14 flags total. 0 = clean, 1 = issue found.
 -- =============================================================================
 
 apply_dq_flags AS (
@@ -207,8 +205,6 @@ apply_dq_flags AS (
              THEN 1 ELSE 0 END                      AS flag_null_material_type,
 
         -- FLAG 3: Invalid material type — not in SAP standard list
-        -- Valid types: FERT, ROH, HALB, VERP, DIEN, NLAG, ERSA, HIBE
-        -- Catches corrupted values like standalone 'T', 'T DIEN', numbers
         CASE WHEN material_type_clean NOT IN (
                 'FERT','ROH','HALB','VERP','DIEN',
                 'NLAG','ERSA','HIBE','UNBW','WETT')
@@ -238,10 +234,7 @@ apply_dq_flags AS (
               AND net_weight_num < 0
              THEN 1 ELSE 0 END                      AS flag_negative_net_weight,
 
-        -- FLAG 9: Net weight greater than gross weight
-        -- Net weight = weight of contents only
-        -- Gross weight = contents + packaging
-        -- Net > Gross is physically impossible
+        -- FLAG 9: Net weight greater than gross weight (impossible)
         CASE WHEN net_weight_num  IS NOT NULL
               AND gross_weight_num IS NOT NULL
               AND net_weight_num > gross_weight_num
@@ -259,7 +252,6 @@ apply_dq_flags AS (
              THEN 1 ELSE 0 END                      AS flag_changed_before_created,
 
         -- FLAG 12: Generic/system created_by user
-        -- Indicates records migrated without proper ownership
         CASE WHEN UPPER(TRIM(created_by)) IN (
                 'ADMIN','MIGRATE','SYSTEM','MIGRATION',
                 'SYS','ADMINISTRATOR','USR000')
@@ -268,7 +260,11 @@ apply_dq_flags AS (
         -- FLAG 13: Material ID was non-standard (needed cleaning)
         CASE WHEN material_id != UPPER(
                 REPLACE(REPLACE(material_id, '-', ''), ' ', ''))
-             THEN 1 ELSE 0 END                      AS flag_nonstandard_material_id
+             THEN 1 ELSE 0 END                      AS flag_nonstandard_material_id,
+
+        -- FLAG 14: Invalid procurement type
+        CASE WHEN procurement_type_clean NOT IN ('E','F','X')
+             THEN 1 ELSE 0 END                      AS flag_invalid_procurement_type
 
     FROM cast_numerics
 ),
@@ -276,8 +272,6 @@ apply_dq_flags AS (
 
 -- =============================================================================
 -- STEP 8: FLAG DUPLICATES
--- Window function counts how many rows share the same cleaned material_id.
--- All copies are flagged — business team decides which version to keep.
 -- =============================================================================
 
 flag_duplicates AS (
@@ -299,8 +293,7 @@ flag_duplicates AS (
 
 -- =============================================================================
 -- STEP 9: CALCULATE DATA QUALITY SCORE
--- 13 flags checked. Score = (clean flags / 13) * 100
--- 100 = perfect record, 0 = every field has an issue
+-- 14 flags. Score = (clean flags / 14) * 100
 -- =============================================================================
 
 calculate_dq_score AS (
@@ -320,8 +313,10 @@ calculate_dq_score AS (
                 (1 - flag_bad_created_date)         +
                 (1 - flag_changed_before_created)   +
                 (1 - flag_generic_user)             +
+                (1 - flag_nonstandard_material_id)  +
+                (1 - flag_invalid_procurement_type) +
                 (1 - flag_duplicate)
-            ) / 13.0 * 100
+            ) / 15.0 * 100
         , 1)                                        AS dq_score
 
     FROM flag_duplicates
@@ -330,10 +325,7 @@ calculate_dq_score AS (
 
 -- =============================================================================
 -- FINAL SELECT
--- Three categories of columns:
---   1. Raw values     → original bronze values, preserved for audit trail
---   2. Clean values   → standardized values ready for SAP upload
---   3. DQ flags/score → drives Power BI dashboard and exception reports
+-- Column order: raw value → clean value (paired together)
 -- =============================================================================
 
 SELECT
@@ -344,38 +336,49 @@ SELECT
     _source_file,
     _ingestion_timestamp,
 
-    -- ── Material ID ───────────────────────────────────────────────────────
+    -- ── Material ID (raw → clean) ──────────────────────────────────────────
     material_id,
     material_id_clean,
 
-    -- ── Descriptive fields ────────────────────────────────────────────────
+    -- ── Description ───────────────────────────────────────────────────────
     material_description,
+
+    -- ── Material type (raw → clean) ───────────────────────────────────────
     material_type,
     material_type_clean,
-    material_group,
-    UPPER(TRIM(material_group))     AS material_group_clean,
 
-    -- ── Unit of measure ───────────────────────────────────────────────────
+    -- ── Material group (raw → clean) ──────────────────────────────────────
+    material_group,
+    UPPER(TRIM(material_group))         AS material_group_clean,
+
+    -- ── Unit of measure (raw → clean) ─────────────────────────────────────
     base_uom,
     base_uom_clean,
 
-    -- ── Weights (raw strings + cast numerics) ─────────────────────────────
+    -- ── Gross weight (raw → numeric) ──────────────────────────────────────
     gross_weight,
-    net_weight,
     gross_weight_num,
+
+    -- ── Net weight (raw → numeric) ────────────────────────────────────────
+    net_weight,
     net_weight_num,
 
-    -- ── Dates (raw strings + parsed dates) ────────────────────────────────
+    -- ── Created date (raw → clean) ────────────────────────────────────────
     created_date,
-    changed_date,
     created_date_clean,
+
+    -- ── Changed date (raw → clean) ────────────────────────────────────────
+    changed_date,
     changed_date_clean,
+
+    -- ── Procurement type (raw → clean) ────────────────────────────────────
+    procurement_type,
+    procurement_type_clean,
 
     -- ── Other fields ──────────────────────────────────────────────────────
     created_by,
     deletion_flag,
     legacy_material_id,
-    procurement_type,
     industry_sector,
 
     -- ── Duplicate tracking ────────────────────────────────────────────────
@@ -396,6 +399,7 @@ SELECT
     flag_generic_user,
     flag_nonstandard_material_id,
     flag_duplicate,
+    flag_invalid_procurement_type,
 
     -- ── Overall DQ score (0-100) ──────────────────────────────────────────
     dq_score
