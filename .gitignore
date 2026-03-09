@@ -22,3 +22,11 @@ logs/
 # OS
 .DS_Store
 Thumbs.db
+
+# Excel temp files (created when file is open)
+~$*.xlsx
+~$*.xls
+
+# Generated report files — too large for GitHub
+profiling/*.xlsx
+profiling/*.xls
