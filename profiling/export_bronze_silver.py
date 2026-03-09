@@ -63,6 +63,13 @@ EXPORT_PAIRS = [
         "silver_mrp_parameters",
         "mrp_parameters"
     ),
+    (
+        "precision_mfg_bronze",
+        "bronze_material_plant_data",
+        "precision_mfg_bronze_silver",
+        "silver_material_plant_data",
+        "material_plant_data"
+    ),
 ]
 
 # =============================================================================
@@ -100,6 +107,17 @@ HIGHLIGHT_COLS = [
     "safety_stock_num",
     "reorder_point_num",
     "goods_receipt_days_num",
+    # Material plant data
+    "mrp_type_clean",
+    "price_control_clean",
+    "lot_size_clean",
+    "safety_stock_num",
+    "standard_price_num",
+    "moving_avg_price_num",
+    "planned_delivery_days_num",
+    "goods_receipt_days_num",
+    "valid_from_clean",
+    "created_date_clean",
 ]
 
 # =============================================================================
@@ -147,6 +165,19 @@ FLAG_COLS = [
     "flag_negative_safety_stock",
     "flag_negative_reorder_point",
     "flag_invalid_consumption_mode",
+    # Material plant data flags
+    "flag_invalid_plant",
+    "flag_null_mrp_type",
+    "flag_invalid_mrp_type",
+    "flag_invalid_price_control",
+    "flag_null_valuation_class",
+    "flag_null_safety_stock",
+    "flag_negative_standard_price",
+    "flag_negative_moving_avg_price",
+    "flag_invalid_lot_size",
+    "flag_invalid_lead_time",
+    "flag_bad_valid_from",
+    "flag_bad_created_date",
 ]
 
 # =============================================================================
